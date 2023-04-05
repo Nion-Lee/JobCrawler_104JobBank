@@ -1,9 +1,6 @@
 ﻿using HtmlAgilityPack;
-using Microsoft.Win32.SafeHandles;
-using System;
-using System.Runtime.InteropServices;
+using System.Globalization;
 using System.Text;
-using System.Text.RegularExpressions;
 
 namespace JobCrwaler_104
 {
@@ -11,6 +8,7 @@ namespace JobCrwaler_104
     {
         private readonly BlackList _blackList;
         private readonly HtmlDocument _document;
+        private const string _tempPath = "C:\\Users\\User\\Desktop\\my repo\\JobCrwaler_104\\JobCrwaler_104\\temp";
         private const string _sourcePath = "C:\\Users\\User\\Desktop\\my repo\\JobCrwaler_104\\JobCrwaler_104\\SourceHtml";
         private const string _outputPath = "C:\\Users\\User\\Desktop\\my repo\\JobCrwaler_104\\JobCrwaler_104\\Output.html";
 
@@ -22,11 +20,20 @@ namespace JobCrwaler_104
 
         public async Task<(int, int)> ProcessAsync()
         {
-            //await PreTrimSourceHtml();
-
+            await PreTrimSourceHtml();
 
             var sourceHtml = await File.ReadAllTextAsync(_sourcePath);
             _document.LoadHtml(sourceHtml);
+
+
+            var xPathPages = "/html/body/main/div[3]/div/div[2]/div[1]/label[1]/select/option[1]";
+            var pageText = _document.DocumentNode.SelectSingleNode(xPathPages).InnerText;
+            var totalPage = ExtractTotalPage(pageText);
+
+
+
+
+
 
             var xPathArtical = "//*[@id=\"js-job-content\"]/article";
             var articles = _document.DocumentNode.SelectNodes(xPathArtical) ??
@@ -34,7 +41,8 @@ namespace JobCrwaler_104
 
             int originCount = articles.Count;
             var filtered = articles.Where(article => !IsBlacklist(article))
-                                   .Where(article => IsSpecifiedDate(article, "3/31"))
+                                   //.Where(article => IsSpecifiedDate(article, "3/31"))
+                                   .Where(article => IsDateInRange(article, "0403", "0405"))
                                    .ToList();
 
             var outputHtml = GetHtmlString(filtered);
@@ -43,34 +51,14 @@ namespace JobCrwaler_104
             return (originCount, filtered.Count);
         }
 
-        [Obsolete("尚未施工完成，暫無法使用")]
-        private JobInfo DesrializeHtmlNodes(HtmlNode node)
-        {
-            return new JobInfo
-            {
-                JobTitle = node.GetAttributeValue("data-job-name", null),
-                CompanyName = node.GetAttributeValue("data-cust-name", null),
-                //Description = node.GetAttributeValue("data-cust-name", null),
-                //WebsiteLink = node.GetAttributeValue("data-cust-name", null)
-            };
-        }
-
         private bool IsBlacklist(HtmlNode node)
         {
-            var jobTitle = node.GetAttributeValue("data-job-name", null).ToUpper();
-            var company = node.GetAttributeValue("data-cust-name", null);
-            var industry = node.GetAttributeValue("data-indcat-desc", null);
+            var jobTitle = node.GetAttributeValue("data-job-name", "").ToUpper();
+            var company = node.GetAttributeValue("data-cust-name", "");
+            var industry = node.GetAttributeValue("data-indcat-desc", "");
 
             if (string.IsNullOrEmpty(jobTitle))
-            {
-                var wrongText = node.OuterHtml;
-                var fixedText = wrongText.Replace("data-job-name=\"\"", "data-job-name=\"");
-
-                _document.LoadHtml(fixedText);
-                var newNode = _document.DocumentNode;
-
-            }
-
+                return true;
 
             if (_blackList.IndustryName.Contains(industry))
                 return true;
@@ -79,8 +67,8 @@ namespace JobCrwaler_104
                 return true;
 
             if (_blackList.CompanyNames_SeemsGoodButCurrentlyNo.Contains(company))
-                return true; 
-            
+                return true;
+
             if (_blackList.CompanyNames_HadSubmitted.Contains(company))
                 return true;
 
@@ -110,6 +98,24 @@ namespace JobCrwaler_104
             return text.Equals(date);
         }
 
+        private bool IsDateInRange(HtmlNode node, string startDateText, string endDateText)
+        {
+            var dateNode = ".//span[@class='b-tit__date']";
+            var dateText = node.SelectSingleNode(dateNode).InnerText.Trim();
+
+            if (string.IsNullOrEmpty(dateText))
+                return false;
+
+            var date = DateOnly.ParseExact(dateText, "M/dd", CultureInfo.InvariantCulture, DateTimeStyles.AllowWhiteSpaces);
+            var startDate = DateOnly.ParseExact(startDateText, "MMdd", CultureInfo.InvariantCulture, DateTimeStyles.AllowWhiteSpaces);
+            var endDate = DateOnly.ParseExact(endDateText, "MMdd", CultureInfo.InvariantCulture, DateTimeStyles.AllowWhiteSpaces);
+
+            if (startDate > endDate)
+                return false;
+
+            return date >= startDate && date <= endDate;
+        }
+
         private string GetHtmlString(IList<HtmlNode> nodes)
         {
             var sb = new StringBuilder();
@@ -122,91 +128,64 @@ namespace JobCrwaler_104
 
         private async Task PreTrimSourceHtml()
         {
-            using var fs = new FileStream(_sourcePath, FileMode.Open, FileAccess.ReadWrite);
-            using var reader = new StreamReader(fs);
-            using var writer = new StreamWriter(fs);
-            
-           
+            var oldStr = "data-job-name=\"\"";
+            var newStr = "data-job-name=\"";
 
-            string? line;
-            var position = 0L;
-            var sb = new StringBuilder();
-            var context = "data-job-name=\"\"";
-
-
-            var AAA = fs.Position;
-            var BBB = fs.Position;
-            var RRRR1 = 0L;
-            var RRRR2 = 0L;
-            var RRRR3 = 0L;
-            var RRRR4 = 0L;
-
-            var totalLineCount1 = 0;
-            var totalLineCount2 = 0;
-            var totalLineCount3 = 0;
-            var totalLineCount4 = 0;
-
-            while ((line = await reader.ReadLineAsync()) != null)
+            using (var fsSource = new FileStream(_sourcePath, FileMode.Open, FileAccess.Read))
+            using (var reader = new StreamReader(fsSource))
+            using (var FsTemp = new FileStream(_tempPath, FileMode.Create, FileAccess.Write))
+            using (var writer = new StreamWriter(FsTemp))
             {
-                int index = line.IndexOf(context);
-
-                RRRR1 = Encoding.UTF8.GetByteCount(line);
-                RRRR2 = Encoding.ASCII.GetByteCount(line);
-                RRRR3 = Encoding.UTF32.GetByteCount(line);
-                RRRR4 = Encoding.Unicode.GetByteCount(line);
-
-                totalLineCount1 += (int)RRRR1;
-                totalLineCount2 += (int)RRRR2;
-                totalLineCount3 += (int)RRRR3;
-                totalLineCount4 += (int)RRRR4;
-
-
-                BBB = fs.Position;
-
-
-                // 覆蓋的行數錯誤，沒蓋在該蓋的地方
-                // 還是差一點點
-
-                // 後來我想想，好像可以捨棄掉這麼複雜的方法
-                // 直接用replace的方法執行
-
-
-                line.Replace(context, sb.ToString());
-
-                if (index != -1)
+                while (!reader.EndOfStream)
                 {
-                    sb.Append(line);
-                    sb.Remove(index + 15, 1);
-                    sb.Insert(index + 15, ' ');
-                    line = sb.ToString();
-
-                    var count = Encoding.UTF8.GetByteCount(line);
-                    fs.Seek(position - count, SeekOrigin.Begin);
-
-
-                    await fs.WriteAsync(Encoding.UTF8.GetBytes(line), 0, count);
-                    await fs.FlushAsync();
-                    
-                    //await writer.WriteLineAsync(line);
-                    
-                    //await writer.FlushAsync();
-
-                    //fs.Seek(position + count, SeekOrigin.Begin);
-
-
-                    sb.Clear();
+                    var line = await reader.ReadLineAsync();
+                    var replacedLine = line.Replace(oldStr, newStr);
+                    await writer.WriteLineAsync(replacedLine);
                 }
-
-                position = fs.Position;
-
-                //11760900
-                //+15
             }
+
+            File.Delete(_sourcePath);
+            File.Move(_tempPath, _sourcePath);
         }
 
-        private async Task PreTrimSourceHtmlTemp()
+        public int ExtractTotalPage(string text)
         {
+            int targetIndex = 0;
+            while (targetIndex < text.Length)
+            {
+                if (text[targetIndex++] == '/')
+                    break;
+            }
 
+            targetIndex += 1;
+            
+            int total = 0;
+            while (text[targetIndex] != ' ')
+            {
+                total = total * 10 + text[targetIndex] - '0';
+                targetIndex++;
+            }
+
+            return total;
         }
     }
 }
+
+
+
+/*
+ 
+ https://www.104.com.tw/jobs/search/    ?ro=0&jobcat=2007001000&isnew=7&       keyword=C%23%20.NET&expansionType=area%2Cspec%2Ccom%2Cjob%2Cwf%2Cwktm&area=6001002003%2C6001001001%2C6001001002%2C6001001003%2C6001001004%2C6001001005%2C6001001006%2C6001001007%2C6001001011%2C6001001008&order=14&asc=0&excludeIndustryCat=1001001001&page=1&mode=s&jobsource=2018indexpoc&langFlag=0&langStatus=0&recommendJob=1&hotJob=1
+ https://www.104.com.tw/jobs/search/    ?ro=1&jobcat=2007001000&isnew=7&       keyword=C%23%20.NET&expansionType=area%2Cspec%2Ccom%2Cjob%2Cwf%2Cwktm&area=6001002003%2C6001001001%2C6001001002%2C6001001003%2C6001001004%2C6001001005%2C6001001006%2C6001001007%2C6001001011%2C6001001008&order=14&asc=0&excludeIndustryCat=1001001001&page=1&mode=s&jobsource=2018indexpoc&langFlag=0&langStatus=0&recommendJob=1&hotJob=1
+ 首頁
+ https://www.104.com.tw/jobs/search/list?ro=1&jobcat=2007001000&isnew=7&kwop=7&keyword=C%23%20.NET&expansionType=area%2Cspec%2Ccom%2Cjob%2Cwf%2Cwktm&area=6001002003%2C6001001001%2C6001001002%2C6001001003%2C6001001004%2C6001001005%2C6001001006%2C6001001007%2C6001001011%2C6001001008&order=14&asc=0&excludeIndustryCat=1001001001&page=2&mode=s&jobsource=2018indexpoc&langFlag=0&langStatus=0&recommendJob=1&hotJob=1
+ 滑1
+ https://www.104.com.tw/jobs/search/list?ro=1&jobcat=2007001000&isnew=7&kwop=7&keyword=C%23%20.NET&expansionType=area%2Cspec%2Ccom%2Cjob%2Cwf%2Cwktm&area=6001002003%2C6001001001%2C6001001002%2C6001001003%2C6001001004%2C6001001005%2C6001001006%2C6001001007%2C6001001011%2C6001001008&order=14&asc=0&excludeIndustryCat=1001001001&page=3&mode=s&jobsource=2018indexpoc&langFlag=0&langStatus=0&recommendJob=1&hotJob=1
+ 滑2
+ https://www.104.com.tw/jobs/search/list?ro=1&jobcat=2007001000&isnew=7&kwop=7&keyword=C%23%20.NET&expansionType=area%2Cspec%2Ccom%2Cjob%2Cwf%2Cwktm&area=6001002003%2C6001001001%2C6001001002%2C6001001003%2C6001001004%2C6001001005%2C6001001006%2C6001001007%2C6001001011%2C6001001008&order=14&asc=0&excludeIndustryCat=1001001001&page=4&mode=s&jobsource=2018indexpoc&langFlag=0&langStatus=0&recommendJob=1&hotJob=1
+ 滑3
+
+
+ https://www.104.com.tw/jobs/search/list?ro=1&jobcat=2007001000&isnew=7&kwop=7&keyword=C%23%20.NET&expansionType=area%2Cspec%2Ccom%2Cjob%2Cwf%2Cwktm&area=6001002003%2C6001001001%2C6001001002%2C6001001003%2C6001001004%2C6001001005%2C6001001006%2C6001001007%2C6001001011%2C6001001008&order=14&asc=0&excludeIndustryCat=1001001001&page=16&mode=s&jobsource=2018indexpoc&langFlag=0&langStatus=0&recommendJob=1&hotJob=1
+ 手動載入第16頁
+ */
