@@ -1,11 +1,15 @@
 ﻿using HtmlAgilityPack;
 using System.Globalization;
+using System.Net.Http;
 using System.Text;
 
 namespace JobCrwaler_104
 {
     public class CrawlingManager
     {
+        private readonly HttpClient _httpClient;
+        private readonly string _targetUrl = "https://www.104.com.tw/jobs/search/?ro=1&jobcat=2007001000&isnew=3&keyword=C%23%20.NET&expansionType=area%2Cspec%2Ccom%2Cjob%2Cwf%2Cwktm&area=6001002003%2C6001001001%2C6001001002%2C6001001003%2C6001001004%2C6001001005%2C6001001006%2C6001001007%2C6001001011%2C6001001008&order=14&asc=0&excludeIndustryCat=1001001001&page=2&mode=s&jobsource=2018indexpoc&langFlag=0&langStatus=0&recommendJob=1&hotJob=1";
+
         private readonly BlackList _blackList;
         private readonly HtmlDocument _document;
         private const string _tempPath = "C:\\Users\\User\\Desktop\\my repo\\JobCrwaler_104\\JobCrwaler_104\\temp";
@@ -15,12 +19,13 @@ namespace JobCrwaler_104
         public CrawlingManager()
         {
             _blackList = new BlackList();
+            _httpClient = new HttpClient();
             _document = new HtmlDocument();
         }
 
         public async Task<(int, int)> ProcessAsync()
         {
-            await PreTrimSourceHtml();
+            await PreTrimTextWhilelFromFile();
 
             var sourceHtml = await File.ReadAllTextAsync(_sourcePath);
             _document.LoadHtml(sourceHtml);
@@ -33,6 +38,51 @@ namespace JobCrwaler_104
 
 
 
+            int originCount = 0;
+            var xPathArtical1 = "//*[@id=\"js-job-content\"]/article";
+
+            var urls = GetPageUrls(totalPage, _targetUrl);
+            var estimatedCount = urls.Length * 15;
+            var jobList = new List<HtmlNode>(estimatedCount);
+
+            for (int i = 0; i < urls.Length; i++)
+            {
+                var html = await _httpClient.GetStringAsync(urls[i]);
+                _document.LoadHtml(html);
+
+                var articles = _document.DocumentNode.SelectNodes(xPathArtical1) 
+                    ?? throw new NullReferenceException("來源資料找不到artical節點");
+
+                originCount += articles.Count;
+
+                for (int i = 0; i < articles.Count; i++)
+                {
+                    if (IsBlacklist(articles[i]))
+                        continue;
+
+                    if (!IsDateInRange(articles[i], "0405", "0406"))
+                        continue;
+
+                    jobList.Add(articles[i]);
+                }
+            }
+
+
+
+
+            var temp = "https://www.104.com.tw/jobs/search/?ro=1&jobcat=2007001000&isnew=3&keyword=%3CD%3E&expansionType=area%2Cspec%2Ccom%2Cjob%2Cwf%2Cwktm&area=6001002003%2C6001001001%2C6001001002%2C6001001003%2C6001001004%2C6001001005%2C6001001006%2C6001001007%2C6001001011%2C6001001008&order=1&asc=0&excludeIndustryCat=1001001001&page=1&mode=s&jobsource=2018indexpoc&langFlag=0&langStatus=0&recommendJob=1&hotJob=1";
+
+            var html = await _httpClient.GetStringAsync(temp);
+            _document.LoadHtml(html);
+            var xPathArtical1 = "//*[@id=\"js-job-content\"]/article";
+
+            var articles1 = _document.DocumentNode.SelectNodes(xPathArtical1) ??
+               throw new NullReferenceException("來源資料找不到artical節點");
+
+
+
+
+
 
 
             var xPathArtical = "//*[@id=\"js-job-content\"]/article";
@@ -41,8 +91,7 @@ namespace JobCrwaler_104
 
             int originCount = articles.Count;
             var filtered = articles.Where(article => !IsBlacklist(article))
-                                   //.Where(article => IsSpecifiedDate(article, "3/31"))
-                                   .Where(article => IsDateInRange(article, "0403", "0405"))
+                                   .Where(article => IsDateInRange(article, "0405", "0406"))
                                    .ToList();
 
             var outputHtml = GetHtmlString(filtered);
@@ -126,7 +175,7 @@ namespace JobCrwaler_104
             return sb.ToString();
         }
 
-        private async Task PreTrimSourceHtml()
+        private async Task PreTrimTextWhilelFromFile()
         {
             var oldStr = "data-job-name=\"\"";
             var newStr = "data-job-name=\"";
@@ -148,7 +197,7 @@ namespace JobCrwaler_104
             File.Move(_tempPath, _sourcePath);
         }
 
-        public int ExtractTotalPage(string text)
+        private int ExtractTotalPage(string text)
         {
             int targetIndex = 0;
             while (targetIndex < text.Length)
@@ -168,24 +217,40 @@ namespace JobCrwaler_104
 
             return total;
         }
+
+        private string[] GetPageUrls(int totalPages, string firstPageUrl)
+        {
+            var targetStr = "&page=";
+            var index = firstPageUrl.IndexOf(targetStr);
+            
+            if (index == -1)
+                throw new ArgumentException($"{firstPageUrl}為錯誤格式");
+
+            var sbFront = new StringBuilder();
+            var sbEnd = new StringBuilder();
+            
+            for (int i = 0; i < index + targetStr.Length; i++)
+            {
+                sbFront.Append(firstPageUrl[i]);
+            }
+
+            for (int i = index + targetStr.Length + 1; i < firstPageUrl.Length; i++)
+            {
+                sbEnd.Append(firstPageUrl[i]);
+            }
+
+            var urls = new string[totalPages];
+            var sbBuffer = new StringBuilder(firstPageUrl.Length + 2);
+            for (int i = 1; i <= urls.Length; i++)
+            {
+                sbBuffer.Append(sbFront);
+                sbBuffer.Append(i);
+                sbBuffer.Append(sbEnd);
+                urls[i - 1] = sbBuffer.ToString();
+                sbBuffer.Clear();
+            }
+
+            return urls;
+        }
     }
 }
-
-
-
-/*
- 
- https://www.104.com.tw/jobs/search/    ?ro=0&jobcat=2007001000&isnew=7&       keyword=C%23%20.NET&expansionType=area%2Cspec%2Ccom%2Cjob%2Cwf%2Cwktm&area=6001002003%2C6001001001%2C6001001002%2C6001001003%2C6001001004%2C6001001005%2C6001001006%2C6001001007%2C6001001011%2C6001001008&order=14&asc=0&excludeIndustryCat=1001001001&page=1&mode=s&jobsource=2018indexpoc&langFlag=0&langStatus=0&recommendJob=1&hotJob=1
- https://www.104.com.tw/jobs/search/    ?ro=1&jobcat=2007001000&isnew=7&       keyword=C%23%20.NET&expansionType=area%2Cspec%2Ccom%2Cjob%2Cwf%2Cwktm&area=6001002003%2C6001001001%2C6001001002%2C6001001003%2C6001001004%2C6001001005%2C6001001006%2C6001001007%2C6001001011%2C6001001008&order=14&asc=0&excludeIndustryCat=1001001001&page=1&mode=s&jobsource=2018indexpoc&langFlag=0&langStatus=0&recommendJob=1&hotJob=1
- 首頁
- https://www.104.com.tw/jobs/search/list?ro=1&jobcat=2007001000&isnew=7&kwop=7&keyword=C%23%20.NET&expansionType=area%2Cspec%2Ccom%2Cjob%2Cwf%2Cwktm&area=6001002003%2C6001001001%2C6001001002%2C6001001003%2C6001001004%2C6001001005%2C6001001006%2C6001001007%2C6001001011%2C6001001008&order=14&asc=0&excludeIndustryCat=1001001001&page=2&mode=s&jobsource=2018indexpoc&langFlag=0&langStatus=0&recommendJob=1&hotJob=1
- 滑1
- https://www.104.com.tw/jobs/search/list?ro=1&jobcat=2007001000&isnew=7&kwop=7&keyword=C%23%20.NET&expansionType=area%2Cspec%2Ccom%2Cjob%2Cwf%2Cwktm&area=6001002003%2C6001001001%2C6001001002%2C6001001003%2C6001001004%2C6001001005%2C6001001006%2C6001001007%2C6001001011%2C6001001008&order=14&asc=0&excludeIndustryCat=1001001001&page=3&mode=s&jobsource=2018indexpoc&langFlag=0&langStatus=0&recommendJob=1&hotJob=1
- 滑2
- https://www.104.com.tw/jobs/search/list?ro=1&jobcat=2007001000&isnew=7&kwop=7&keyword=C%23%20.NET&expansionType=area%2Cspec%2Ccom%2Cjob%2Cwf%2Cwktm&area=6001002003%2C6001001001%2C6001001002%2C6001001003%2C6001001004%2C6001001005%2C6001001006%2C6001001007%2C6001001011%2C6001001008&order=14&asc=0&excludeIndustryCat=1001001001&page=4&mode=s&jobsource=2018indexpoc&langFlag=0&langStatus=0&recommendJob=1&hotJob=1
- 滑3
-
-
- https://www.104.com.tw/jobs/search/list?ro=1&jobcat=2007001000&isnew=7&kwop=7&keyword=C%23%20.NET&expansionType=area%2Cspec%2Ccom%2Cjob%2Cwf%2Cwktm&area=6001002003%2C6001001001%2C6001001002%2C6001001003%2C6001001004%2C6001001005%2C6001001006%2C6001001007%2C6001001011%2C6001001008&order=14&asc=0&excludeIndustryCat=1001001001&page=16&mode=s&jobsource=2018indexpoc&langFlag=0&langStatus=0&recommendJob=1&hotJob=1
- 手動載入第16頁
- */
