@@ -11,19 +11,18 @@ namespace JobCrwaler_104
         private readonly HttpClient _httpClient;
         private readonly HtmlDocument _document;
         private readonly SeleniumTool _seleniumTool;
-        
+
         private readonly double _crawlingInterval = 0.35;
         private readonly string _startDate = "0406";
         private readonly string _endDate = "0408";
 
         private readonly string _targetUrl;
-        private readonly string _tempPath = "C:\\Users\\User\\Desktop\\my repo\\JobCrwaler_104\\JobCrwaler_104\\temp";
-        private readonly string _sourcePath = "C:\\Users\\User\\Desktop\\my repo\\JobCrwaler_104\\JobCrwaler_104\\SourceHtml";
-        private readonly string _outputPath = "C:\\Users\\User\\Desktop\\my repo\\JobCrwaler_104\\JobCrwaler_104\\Output.html";
+        private readonly string _preferenceStr;
 
-        public CrawlingManager(string url)
+        public CrawlingManager(string url, string browserPreference)
         {
             _targetUrl = url;
+            _preferenceStr = browserPreference;
             _blackList = new BlackList();
             _httpClient = new HttpClient();
             _document = new HtmlDocument();
@@ -37,19 +36,19 @@ namespace JobCrwaler_104
             int totalPage = await GetPageCount();
             var urls = GetPageUrls(totalPage, _targetUrl);
 
-
             await Console.Out.WriteLineAsync("爬蟲中...\n");
 
             var (originCount, jobList) = await GetFilteredNodes(urls);
             var outputHtml = GetHtmlString(jobList);
 
-
             await Console.Out.WriteLineAsync($"\n原始資料：{originCount}筆，篩選後：{jobList.Count}筆\n");
-            await Console.Out.WriteLineAsync("開啟瀏覽器模擬中...\n");
 
+            var IsFirefox = IsFirefoxOverChrome();
+            var outputMsg = IsFirefox ? "火狐" : "Chrome";
+            await Console.Out.WriteLineAsync($"開啟{outputMsg}瀏覽器模擬中...\n");
 
             var xPath = "//*[@id=\"js-job-content\"]";
-            _seleniumTool.Process(_targetUrl, xPath, outputHtml);
+            _seleniumTool.Process(_targetUrl, xPath, outputHtml, IsFirefox);
 
             return (originCount, jobList.Count);
         }
@@ -90,7 +89,7 @@ namespace JobCrwaler_104
         private async Task<HtmlNodeCollection> GetArticles(string url)
         {
             var xPath = "//*[@id=\"js-job-content\"]/article";
-         
+
             var html = await _httpClient.GetStringAsync(url);
             _document.LoadHtml(html);
 
@@ -109,8 +108,6 @@ namespace JobCrwaler_104
 
                 if (!IsDateInRange(articles[i], _startDate, _endDate))
                     continue;
-
-                var a = articles[i];
 
                 jobList.Add(articles[i].OuterHtml);
             }
@@ -152,17 +149,6 @@ namespace JobCrwaler_104
             return false;
         }
 
-        private bool IsSpecifiedDate(HtmlNode node, string date)
-        {
-            var xPathDateNode = ".//span[@class='b-tit__date']";
-            var text = node.SelectSingleNode(xPathDateNode).InnerText.Trim();
-
-            if (string.IsNullOrEmpty(text))
-                return true;
-
-            return text.Equals(date);
-        }
-
         private bool IsDateInRange(HtmlNode node, string startDateText, string endDateText)
         {
             var dateNode = ".//span[@class='b-tit__date']";
@@ -190,49 +176,6 @@ namespace JobCrwaler_104
             }
 
             return sb.ToString();
-        }
-
-        private async Task PreTrimTextWhilelFromFile()
-        {
-            var oldStr = "data-job-name=\"\"";
-            var newStr = "data-job-name=\"";
-
-            using (var fsSource = new FileStream(_sourcePath, FileMode.Open, FileAccess.Read))
-            using (var reader = new StreamReader(fsSource))
-            using (var FsTemp = new FileStream(_tempPath, FileMode.Create, FileAccess.Write))
-            using (var writer = new StreamWriter(FsTemp))
-            {
-                while (!reader.EndOfStream)
-                {
-                    var line = await reader.ReadLineAsync();
-                    var replacedLine = line.Replace(oldStr, newStr);
-                    await writer.WriteLineAsync(replacedLine);
-                }
-            }
-
-            File.Delete(_sourcePath);
-            File.Move(_tempPath, _sourcePath);
-        }
-
-        private int ExtractTotalPage(string text)
-        {
-            int targetIndex = 0;
-            while (targetIndex < text.Length)
-            {
-                if (text[targetIndex++] == '/')
-                    break;
-            }
-
-            targetIndex += 1;
-
-            int total = 0;
-            while (text[targetIndex] != ' ')
-            {
-                total = total * 10 + text[targetIndex] - '0';
-                targetIndex++;
-            }
-
-            return total;
         }
 
         private string[] GetPageUrls(int totalPages, string firstPageUrl)
@@ -272,6 +215,16 @@ namespace JobCrwaler_104
             }
 
             return urls;
+        }
+
+        private bool IsFirefoxOverChrome()
+        {
+            _ = int.TryParse(_preferenceStr, out int num);
+
+            if (num == 2)
+                return false;
+
+            return true;
         }
     }
 }

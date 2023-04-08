@@ -6,11 +6,10 @@ namespace JobCrwaler_104
 {
     public class SeleniumTool
     {
-        public void Process(string url, string xPath, string outputHtml)
+        public void Process(string url, string xPath, string outputHtml, bool isFirefoxOverChrome)
         {
-            using var driver = new FirefoxDriver();
-            //using var driver = new ChromeDriver();
-
+            using WebDriver driver = isFirefoxOverChrome ? new FirefoxDriver() 
+                                                         : new ChromeDriver();
             driver.Navigate().GoToUrl(url);
             var node = driver.FindElement(By.XPath(xPath));
 
