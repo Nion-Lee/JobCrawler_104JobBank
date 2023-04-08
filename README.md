@@ -9,10 +9,10 @@
 目前BlackList內的既有黑名單是個人的搜尋偏好，想改的再自行更改就好。
 <br/>
 <br/>
-<br/>
 以下為程式使用範例：
 ![圖片](https://user-images.githubusercontent.com/23168034/230737787-e42ed081-1e19-4a2a-8401-47ff0df64867.png)
-
+<br/>
+<br/>
 最後輸出畫面：
 ![圖片](https://user-images.githubusercontent.com/23168034/230737811-041a2bc1-d2b7-417a-92b8-1901a9348f1e.png)
 <br/>
