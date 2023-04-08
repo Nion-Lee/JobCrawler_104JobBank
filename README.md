@@ -6,5 +6,11 @@
 執行所需之網址為，在104點選「搜尋」按鈕之後，當下瀏覽器上方的url。  
 目前BlackList內的既有黑名單是個人的搜尋偏好，想改的再自行更改就好。
   
+以下為程式使用範例：
+![圖片](https://user-images.githubusercontent.com/23168034/230737787-e42ed081-1e19-4a2a-8401-47ff0df64867.png)
+
+最後輸出畫面：
+![圖片](https://user-images.githubusercontent.com/23168034/230737811-041a2bc1-d2b7-417a-92b8-1901a9348f1e.png)
+
     
 DISCLAIMER：該程式為藉由104公開開放之API去存取職缺資訊，擷取資料後使用本機篩選並渲染，並非透過不法手段違規存取104公司資料庫。
