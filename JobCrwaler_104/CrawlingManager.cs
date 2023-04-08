@@ -1,103 +1,119 @@
 ﻿using HtmlAgilityPack;
 using System.Globalization;
-using System.Net.Http;
 using System.Text;
+using System.Text.RegularExpressions;
 
 namespace JobCrwaler_104
 {
     public class CrawlingManager
     {
-        private readonly HttpClient _httpClient;
-        private readonly string _targetUrl = "https://www.104.com.tw/jobs/search/?ro=1&jobcat=2007001000&isnew=3&keyword=C%23%20.NET&expansionType=area%2Cspec%2Ccom%2Cjob%2Cwf%2Cwktm&area=6001002003%2C6001001001%2C6001001002%2C6001001003%2C6001001004%2C6001001005%2C6001001006%2C6001001007%2C6001001011%2C6001001008&order=14&asc=0&excludeIndustryCat=1001001001&page=2&mode=s&jobsource=2018indexpoc&langFlag=0&langStatus=0&recommendJob=1&hotJob=1";
-
         private readonly BlackList _blackList;
+        private readonly HttpClient _httpClient;
         private readonly HtmlDocument _document;
-        private const string _tempPath = "C:\\Users\\User\\Desktop\\my repo\\JobCrwaler_104\\JobCrwaler_104\\temp";
-        private const string _sourcePath = "C:\\Users\\User\\Desktop\\my repo\\JobCrwaler_104\\JobCrwaler_104\\SourceHtml";
-        private const string _outputPath = "C:\\Users\\User\\Desktop\\my repo\\JobCrwaler_104\\JobCrwaler_104\\Output.html";
+        private readonly SeleniumTool _seleniumTool;
+        
+        private readonly double _crawlingInterval = 0.35;
+        private readonly string _startDate = "0406";
+        private readonly string _endDate = "0408";
 
-        public CrawlingManager()
+        private readonly string _targetUrl;
+        private readonly string _tempPath = "C:\\Users\\User\\Desktop\\my repo\\JobCrwaler_104\\JobCrwaler_104\\temp";
+        private readonly string _sourcePath = "C:\\Users\\User\\Desktop\\my repo\\JobCrwaler_104\\JobCrwaler_104\\SourceHtml";
+        private readonly string _outputPath = "C:\\Users\\User\\Desktop\\my repo\\JobCrwaler_104\\JobCrwaler_104\\Output.html";
+
+        public CrawlingManager(string url)
         {
+            _targetUrl = url;
             _blackList = new BlackList();
             _httpClient = new HttpClient();
             _document = new HtmlDocument();
+            _seleniumTool = new SeleniumTool();
         }
 
         public async Task<(int, int)> ProcessAsync()
         {
-            await PreTrimTextWhilelFromFile();
+            await Console.Out.WriteLineAsync("蒐集資料中...\n");
 
-            var sourceHtml = await File.ReadAllTextAsync(_sourcePath);
-            _document.LoadHtml(sourceHtml);
-
-
-            var xPathPages = "/html/body/main/div[3]/div/div[2]/div[1]/label[1]/select/option[1]";
-            var pageText = _document.DocumentNode.SelectSingleNode(xPathPages).InnerText;
-            var totalPage = ExtractTotalPage(pageText);
-
-
-
-
-            int originCount = 0;
-            var xPathArtical1 = "//*[@id=\"js-job-content\"]/article";
-
+            int totalPage = await GetPageCount();
             var urls = GetPageUrls(totalPage, _targetUrl);
+
+
+            await Console.Out.WriteLineAsync("爬蟲中...\n");
+
+            var (originCount, jobList) = await GetFilteredNodes(urls);
+            var outputHtml = GetHtmlString(jobList);
+
+
+            await Console.Out.WriteLineAsync($"\n原始資料：{originCount}筆，篩選後：{jobList.Count}筆\n");
+            await Console.Out.WriteLineAsync("開啟瀏覽器模擬中...\n");
+
+
+            var xPath = "//*[@id=\"js-job-content\"]";
+            _seleniumTool.Process(_targetUrl, xPath, outputHtml);
+
+            return (originCount, jobList.Count);
+        }
+
+        private async Task<int> GetPageCount()
+        {
+            var firstPage = await _httpClient.GetStringAsync(_targetUrl);
+            var regex = new Regex("\"totalPage\":(\\d+)");
+            var match = regex.Match(firstPage);
+
+            return int.Parse(match.Groups[1].Value);
+        }
+
+        private async Task<(int, IList<string>)> GetFilteredNodes(string[] urls)
+        {
+            int originCount = 0;
             var estimatedCount = urls.Length * 15;
-            var jobList = new List<HtmlNode>(estimatedCount);
+            var jobListList = new List<string>(estimatedCount);
 
             for (int i = 0; i < urls.Length; i++)
             {
-                var html = await _httpClient.GetStringAsync(urls[i]);
-                _document.LoadHtml(html);
+                var (row, col) = Console.GetCursorPosition();
+                await Console.Out.WriteLineAsync($"每{_crawlingInterval}秒擷取第 {i + 1} / {urls.Length} 頁職缺資訊中");
+                Console.SetCursorPosition(row, col);
 
-                var articles = _document.DocumentNode.SelectNodes(xPathArtical1) 
-                    ?? throw new NullReferenceException("來源資料找不到artical節點");
+                var articles = await GetArticles(urls[i]);
 
                 originCount += articles.Count;
+                AppendWhileMeetsRequirements(jobListList, articles);
 
-                for (int i = 0; i < articles.Count; i++)
-                {
-                    if (IsBlacklist(articles[i]))
-                        continue;
-
-                    if (!IsDateInRange(articles[i], "0405", "0406"))
-                        continue;
-
-                    jobList.Add(articles[i]);
-                }
+                await Task.Delay(TimeSpan.FromSeconds(_crawlingInterval));
             }
 
+            await Console.Out.WriteLineAsync();
+            return (originCount, jobListList);
+        }
 
-
-
-            var temp = "https://www.104.com.tw/jobs/search/?ro=1&jobcat=2007001000&isnew=3&keyword=%3CD%3E&expansionType=area%2Cspec%2Ccom%2Cjob%2Cwf%2Cwktm&area=6001002003%2C6001001001%2C6001001002%2C6001001003%2C6001001004%2C6001001005%2C6001001006%2C6001001007%2C6001001011%2C6001001008&order=1&asc=0&excludeIndustryCat=1001001001&page=1&mode=s&jobsource=2018indexpoc&langFlag=0&langStatus=0&recommendJob=1&hotJob=1";
-
-            var html = await _httpClient.GetStringAsync(temp);
+        private async Task<HtmlNodeCollection> GetArticles(string url)
+        {
+            var xPath = "//*[@id=\"js-job-content\"]/article";
+         
+            var html = await _httpClient.GetStringAsync(url);
             _document.LoadHtml(html);
-            var xPathArtical1 = "//*[@id=\"js-job-content\"]/article";
 
-            var articles1 = _document.DocumentNode.SelectNodes(xPathArtical1) ??
-               throw new NullReferenceException("來源資料找不到artical節點");
+            var articles = _document.DocumentNode.SelectNodes(xPath)
+                ?? throw new NullReferenceException("來源資料找不到artical節點");
 
+            return articles;
+        }
 
+        private void AppendWhileMeetsRequirements(List<string> jobList, HtmlNodeCollection articles)
+        {
+            for (int i = 0; i < articles.Count; i++)
+            {
+                if (IsBlacklist(articles[i]))
+                    continue;
 
+                if (!IsDateInRange(articles[i], _startDate, _endDate))
+                    continue;
 
+                var a = articles[i];
 
-
-
-            var xPathArtical = "//*[@id=\"js-job-content\"]/article";
-            var articles = _document.DocumentNode.SelectNodes(xPathArtical) ??
-                           throw new NullReferenceException("來源資料找不到artical節點");
-
-            int originCount = articles.Count;
-            var filtered = articles.Where(article => !IsBlacklist(article))
-                                   .Where(article => IsDateInRange(article, "0405", "0406"))
-                                   .ToList();
-
-            var outputHtml = GetHtmlString(filtered);
-            await File.WriteAllTextAsync(_outputPath, outputHtml, Encoding.UTF8);
-
-            return (originCount, filtered.Count);
+                jobList.Add(articles[i].OuterHtml);
+            }
         }
 
         private bool IsBlacklist(HtmlNode node)
@@ -165,13 +181,14 @@ namespace JobCrwaler_104
             return date >= startDate && date <= endDate;
         }
 
-        private string GetHtmlString(IList<HtmlNode> nodes)
+        private string GetHtmlString(IList<string> nodes)
         {
             var sb = new StringBuilder();
             for (int i = 0; i < nodes.Count; i++)
             {
-                sb.Append(nodes[i].OuterHtml);
+                sb.Append(nodes[i]);
             }
+
             return sb.ToString();
         }
 
@@ -207,7 +224,7 @@ namespace JobCrwaler_104
             }
 
             targetIndex += 1;
-            
+
             int total = 0;
             while (text[targetIndex] != ' ')
             {
@@ -220,21 +237,24 @@ namespace JobCrwaler_104
 
         private string[] GetPageUrls(int totalPages, string firstPageUrl)
         {
-            var targetStr = "&page=";
-            var index = firstPageUrl.IndexOf(targetStr);
-            
-            if (index == -1)
+            var regex = new Regex("&page=(\\d+)");
+            var match = regex.Match(firstPageUrl);
+
+            if (!match.Success)
                 throw new ArgumentException($"{firstPageUrl}為錯誤格式");
 
-            var sbFront = new StringBuilder();
-            var sbEnd = new StringBuilder();
-            
-            for (int i = 0; i < index + targetStr.Length; i++)
+            int pageNumIndex = match.Index;
+            int pageNumLength = match.Length;
+
+            var sbFront = new StringBuilder(pageNumIndex);
+            var sbEnd = new StringBuilder(firstPageUrl.Length - pageNumIndex);
+
+            for (int i = 0; i < pageNumIndex; i++)
             {
                 sbFront.Append(firstPageUrl[i]);
             }
 
-            for (int i = index + targetStr.Length + 1; i < firstPageUrl.Length; i++)
+            for (int i = pageNumIndex + pageNumLength; i < firstPageUrl.Length; i++)
             {
                 sbEnd.Append(firstPageUrl[i]);
             }
@@ -244,6 +264,7 @@ namespace JobCrwaler_104
             for (int i = 1; i <= urls.Length; i++)
             {
                 sbBuffer.Append(sbFront);
+                sbBuffer.Append("&page=");
                 sbBuffer.Append(i);
                 sbBuffer.Append(sbEnd);
                 urls[i - 1] = sbBuffer.ToString();
