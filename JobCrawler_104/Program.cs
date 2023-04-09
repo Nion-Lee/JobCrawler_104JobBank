@@ -11,4 +11,4 @@ await Console.Out.WriteLineAsync();
 var manager = new CrawlingManager(url, browserPreference);
 var quantity = await manager.ProcessAsync();
 
-await Console.Out.WriteLineAsync($"程序結束");
+await Console.Out.WriteLineAsync($"\n程序結束");
