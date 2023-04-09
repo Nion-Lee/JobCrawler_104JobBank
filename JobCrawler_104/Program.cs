@@ -1,6 +1,6 @@
 ﻿using JobCrwaler_104;
 
-await Console.Out.WriteAsync("請輸入正確目標104網址：");
+await Console.Out.WriteAsync("請輸入目標104網址：");
 var url = Console.ReadLine();
 
 await Console.Out.WriteLineAsync();

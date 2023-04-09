@@ -34,6 +34,10 @@ namespace JobCrwaler_104
             await Console.Out.WriteLineAsync("蒐集資料中...\n");
 
             int totalPage = await GetPageCount();
+
+            if (totalPage < 0)
+                return default;
+
             var urls = GetPageUrls(totalPage, _targetUrl);
 
             await Console.Out.WriteLineAsync("爬蟲中...\n");
@@ -55,11 +59,23 @@ namespace JobCrwaler_104
 
         private async Task<int> GetPageCount()
         {
-            var firstPage = await _httpClient.GetStringAsync(_targetUrl);
-            var regex = new Regex("\"totalPage\":(\\d+)");
-            var match = regex.Match(firstPage);
+            try
+            {
+                var firstPage = await _httpClient.GetStringAsync(_targetUrl);
+                var regex = new Regex("\"totalPage\":(\\d+)");
+                var match = regex.Match(firstPage);
 
-            return int.Parse(match.Groups[1].Value);
+                return int.Parse(match.Groups[1].Value);
+            }
+            catch (Exception ex)
+            {
+                if (ex is not (InvalidOperationException or FormatException))
+                    throw;
+
+                await Console.Out.WriteLineAsync("URL錯誤！請輸入正確104職缺搜尋連結\n");
+                await Console.Out.WriteLineAsync("強制終止程序...\n");
+                return -1;
+            }
         }
 
         private async Task<(int, IList<string>)> GetFilteredNodes(string[] urls)
