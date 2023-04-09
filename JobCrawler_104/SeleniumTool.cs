@@ -24,7 +24,7 @@ namespace JobCrwaler_104
 
                 driver.ExecuteScript(script, node, outputHtml);
 
-                Console.WriteLine("請按任一鍵結束瀏覽器模擬\n");
+                Console.WriteLine("\n請按任一鍵結束瀏覽器模擬\n");
                 Console.ReadKey();
 
                 driver.Quit();
