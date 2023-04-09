@@ -73,7 +73,7 @@ namespace JobCrwaler_104
                     throw;
 
                 await Console.Out.WriteLineAsync("URL錯誤！請輸入正確104職缺搜尋連結\n");
-                await Console.Out.WriteLineAsync("強制終止程序...\n");
+                await Console.Out.WriteLineAsync("強制終止程序...");
                 return -1;
             }
         }
