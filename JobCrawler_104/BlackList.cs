@@ -2,7 +2,7 @@
 {
     public class BlackList
     {
-        public HashSet<string> CompanyNames { get; init; } = new HashSet<string>
+        public HashSet<string> CompanyNames_CSharp { get; init; } = new HashSet<string>
         {
             "永慶房產集團_永慶房屋仲介股份有限公司",
             "舒果農企業有限公司",
@@ -219,6 +219,58 @@
             "來毅數位科技股份有限公司",
             "誠品股份有限公司",
             "台灣永盛科訊科技有限公司",
+            "全球快遞_全球商務科技股份有限公司",
+            "恒吉佳國際有限公司",
+            "啟銓科技股份有限公司",
+            "樂澄科技股份有限公司",
+            "集智顧問股份有限公司",
+            "中華電信關係企業_宏華國際股份有限公司",
+            "威信資訊工程有限公司",
+            "艾威科軟體股份有限公司",
+            "星至澄資訊有限公司",
+            "冠群國際專利商標聯合事務所",
+            "兆派娛樂科技有限公司",
+            "俥亭停車事業股份有限公司",
+            "茁思科技股份有限公司",
+            "資通電腦股份有限公司",
+            "信義房屋股份有限公司",
+            "力億企業股份有限公司",
+            "安普新股份有限公司",
+            "大云永續科技股份有限公司",
+            "優護平台股份有限公司",
+            "Finger Game_芬格國際股份有限公司",
+            "DIGITIMES INC._大椽股份有限公司",
+            "尚程資訊有限公司",
+            "CoCo都可_億可國際飲食股份有限公司",
+            "雷爵網絡科技股份有限公司",
+            "英科資訊科技股份有限公司",
+            "元太數位科技有限公司",
+            "欣創科技有限公司",
+            "天空傳媒股份有限公司",
+            "亞克瑪股份有限公司",
+            "天空傳媒股份有限公司",
+            "狀態網際網路股份有限公司",
+            "群琁地理資訊顧問股份有限公司",
+            "雄互聯科技股份有限公司",
+            "鉑特資訊有限公司",
+            "嘉誠資訊股份有限公司",
+            "萊泀股份有限公司",
+            "銳通資訊科技有限公司",
+            "皇霖實業股份有限公司",
+            "聖洺國際通路顧問股份有限公司",
+            "網路中文資訊股份有限公司",
+            "暘碁資訊股份有限公司",
+            "弘捷資訊服務有限公司",
+            "廣燁資訊顧問有限公司",
+            "勤美股份有限公司",
+            "凌越資訊股份有限公司",
+            "晏晟科技股份有限公司",
+            "捷鵬國際股份有限公司",
+            "未來市股份有限公司",
+            "廿一世紀資融股份有限公司", //辦公在二樓，往來車輛廢氣糟
+            "橘子磨坊數位創意溝通股份有限公司",
+            "市訊資訊有限公司",
+            "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
             "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
             "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
             "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
@@ -230,7 +282,31 @@
             // 這邊是一般黑名單
         };
 
-        public HashSet<string> CompanyNames_SeemsGoodButCurrentlyNo { get; init; } = new HashSet<string>
+        public HashSet<string> CompanyNames_GO { get; init; } = new HashSet<string>
+        {
+          "禾宥有限公司",
+          "太禾科技有限公司",
+          "畢竟科技股份有限公司",
+          "CYBAVO_博歐科技有限公司",
+          "德義資訊股份有限公司",
+          "現觀科技股份有限公司",
+          "睿締國際科技股份有限公司",
+          "台灣大哥大股份有限公司",
+          "PChome Online_網路家庭國際資訊(股)公司",
+          "東森新媒體控股股份有限公司",
+          "PressPlay_瑞奧股份有限公司",
+          "三竹資訊股份有限公司",
+          "台灣雨花石雲計算科技有限公司",
+          "杰倫智能科技股份有限公司",
+          "aaaaaaaaaaaaaaaaaaaaaaaa",
+          "aaaaaaaaaaaaaaaaaaaaaaaa",
+          "aaaaaaaaaaaaaaaaaaaaaaaa",
+          "aaaaaaaaaaaaaaaaaaaaaaaa",
+          "aaaaaaaaaaaaaaaaaaaaaaaa",
+          "aaaaaaaaaaaaaaaaaaaaaaaa",
+        };
+
+        public HashSet<string> CompanyNames_SeemsGoodButCurrentlyNo_CSharp { get; init; } = new HashSet<string>
         {
             "宇匯知識科技股份有限公司",
             "DireSoft_德元軟體科技有限公司",
@@ -254,8 +330,16 @@
             "漢通科技股份有限公司",
             "Amber Studio_虎魄股份有限公司",
             "畢竟科技股份有限公司",
-            "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-            "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "赫米兔娛樂有限公司",
+            "萬達人工智慧科技股份有限公司",
+            "區塊科技股份有限公司",
+            "環輿科技股份有限公司",
+            "金果科技股份有限公司",
+            "經貿聯網科技股份有限公司",
+            "宇迅國際有限公司",
+            "紐奧谷科技股份有限公司",
+            "雲端互動股份有限公司",
+            "學力創意科技股份有限公司", // 沒.NET缺
             "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
             "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
             "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
@@ -265,7 +349,20 @@
             // 好像優秀暫時不
         };
 
-        public HashSet<string> CompanyNames_HadSubmitted { get; init; } = new HashSet<string>
+        public HashSet<string> CompanyNames_SeemsGoodButCurrentlyNo_GO { get; init; } = new HashSet<string>
+        {
+            "美商安佩科技股份有限公司台灣分公司",
+            "安提資本亞洲有限公司",
+            "天晴資訊有限公司",
+            "馬來西亞商思想科技有限公司台灣分公司",
+            "大門科技顧問有限公司",
+            "量趨科技股份有限公司",
+            "aaaaaaaaaaaaaaaaaaaaaaaa",
+            "aaaaaaaaaaaaaaaaaaaaaaaa",
+            "aaaaaaaaaaaaaaaaaaaaaaaa",
+        };
+
+        public HashSet<string> CompanyNames_HadSubmitted_CSharp { get; init; } = new HashSet<string>
         {
             "沙漠魚科技股份有限公司",
             "黑訊科技股份有限公司",
@@ -325,11 +422,117 @@
             "統一數網股份有限公司",
             "新光影城股份有限公司",
             "沛榮國際股份有限公司",
+            "旭電馳科研股份有限公司",
+            "育碁數位科技股份有限公司",
+            "聖德科斯_統健實業股份有限公司",
+            "愛群生醫國際股份有限公司",
+            "全位國際股份有限公司",
+            "嬌聯股份有限公司",
+            "藥華醫藥股份有限公司",
+            "英屬開曼群島商科絡達股份有限公司台灣分公司",
+            "香港商永道無線射頻標籤有限公司台灣分公司",
+            "智慧時尚股份有限公司",
+            "天晴資訊有限公司",
+            "毅聲科技有限公司",
+            "某海運有限公司",
+            "GOMAJI_夠麻吉股份有限公司",
+            "健訊企業有限公司",
+            "艾爾科技股份有限公司",
+            "台灣新鈳電子股份有限公司",
+            "影像電腦股份有限公司",
+            "型創科技顧問股份有限公司",
+            "鼎越開發股份有限公司",
+            "南訊企業股份有限公司",
+            "華立企業股份有限公司",
+            "必勝客Pizza Hut/肯德基KFC_富利餐飲股份有限公司",
+            "東和鋼鐵企業股份有限公司",
+            "華城電機股份有限公司",
+            "皇翔建設股份有限公司",
+            "日盛台駿國際租賃股份有限公司",
+            "榮成紙業股份有限公司",
+            "香港商天景數碼有限公司台灣分公司",
+            "華新麗華股份有限公司",
+            "隴華電子股份有限公司",
+            "上銀科技股份有限公司",
+            "聖島國際專利商標聯合事務所",
+            "台灣希森美康股份有限公司",
+            "全家便利商店股份有限公司",
+            "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
             "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
             "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
 
 
             // 投過履歷的地方
+        };
+
+        public HashSet<string> CompanyNames_HadSubmitted_GO { get; init; } = new HashSet<string>
+        {
+            "盈通管理顧問有限公司",
+            "波比科技有限公司",
+            "像素數科技術有限公司",
+            "禾向數位科技有限公司",
+            "晶密股份有限公司",
+            "浪LIVE_旭瑞文化傳媒股份有限公司",
+            "台灣資信股份有限公司",
+            "天堂遊戲有限公司",
+            "宇泰華科技股份有限公司",
+            "Dcard _狄卡科技股份有限公司",
+            "愛卡拉互動媒體股份有限公司",
+            "DireSoft_德元軟體科技有限公司",
+            "瞬聯科技股份有限公司",
+            "馬紹爾群島商彩虹科技股份有限公司",
+            "米約科技有限公司",
+            "美商時豪科技股份有限公司",
+            "天昕科技股份有限公司",
+            "塞席爾商悠福科技股份有限公司",
+            "Synology_群暉科技股份有限公司",
+            "英屬開曼群島商萬里雲互聯股份有限公司台灣分公司",
+            "科科世界股份有限公司",
+            "蜘蛛網路股份有限公司",
+            "新加坡商揪口有限公司台灣分公司",
+            "雷速網絡科技有限公司",
+            "香港商六度科技有限公司",
+            "艾爾默科技有限公司",
+            "名豐電子股份有限公司",
+            "Finger Game_芬格國際股份有限公司",
+            "曙客股份有限公司",
+            "久益立數位科技有限公司",
+            "優必達台灣有限公司",
+            "睿控網安股份有限公司",
+            "杜浦數位安全股份有限公司",
+            "帆達科技有限公司",
+            "禾亞數位科技股份有限公司",
+            "SHOPLINE Technology Corp., Ltd._商線科技股份有限公司",
+            "線上探索科技有限公司",
+            "思偉達創新科技股份有限公司",
+            "晶日國際有限公司",
+            "威朋大數據股份有限公司",
+            "香港商泥巴娛樂有限公司台灣分公司",
+            "薩摩亞商毅成科技有限公司",
+            "Moment Group_勁渠股份有限公司",
+            "二十五電訊股份有限公司",
+            "聰泰科技開發股份有限公司",
+            "恒利威科技有限公司",
+            "大鏞科技股份有限公司",
+            "誠品生活股份有限公司",
+            "COMMEET_擁樂數據服務股份有限公司",
+            "代碼科技有限公司",
+            "詮睿科技股份有限公司",
+            "潔客幫股份有限公司",
+            "大樹科技顧問有限公司",
+            "人與人股份有限公司",
+            "侍達遊戲藝術有限公司",
+            "未來軟體開發有限公司",
+            "群和軟體有限公司",
+            "富據智能科技股份有限公司",
+            "庫力索法高科股份有限公司",
+            "澳比訊創新股份有限公司",
+            "aaaaaaaaaaaaaaaaaaaaaaaa",
+            "aaaaaaaaaaaaaaaaaaaaaaaa",
+            "aaaaaaaaaaaaaaaaaaaaaaaa",
+            "aaaaaaaaaaaaaaaaaaaaaaaa",
         };
 
         public HashSet<string> IndustryName { get; init; } = new HashSet<string>
@@ -356,7 +559,7 @@
             "社團法人",
         };
 
-        public IList<string> JobTitleKeywords { get; init; } = new List<string>
+        public IList<string> JobTitleKeywords_CSharp { get; init; } = new List<string>
         {
             "UNITY",
             "ANALYST",
@@ -372,6 +575,13 @@
             "ERP",
             "UNREAL",
             "韌體",
+        };
+
+        public IList<string> JobTitleKeywords_GO { get; init; } = new List<string>
+        {
+            "RELIABILITY",
+            "SRE",
+            "DEVOPS",
         };
     }
 }

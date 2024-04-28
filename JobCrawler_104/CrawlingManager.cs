@@ -13,8 +13,8 @@ namespace JobCrwaler_104
         private readonly SeleniumTool _seleniumTool;
 
         private readonly double _crawlingInterval = 0.35;
-        private readonly string _startDate = "0406";
-        private readonly string _endDate = "0408";
+        private readonly string _startDate = "0624";
+        private readonly string _endDate = "0628";
 
         private readonly string _targetUrl;
         private readonly string _preferenceStr;
@@ -31,7 +31,7 @@ namespace JobCrwaler_104
 
         public async Task<(int, int)> ProcessAsync()
         {
-            await Console.Out.WriteLineAsync("蒐集資料中...\n");
+            await Console.Out.WriteLineAsync($"蒐集{_startDate}至{_endDate}資料中...\n");
 
             int totalPage = await GetPageCount();
 
@@ -119,7 +119,7 @@ namespace JobCrwaler_104
         {
             for (int i = 0; i < articles.Count; i++)
             {
-                if (IsBlacklist(articles[i]))
+                if (IsBlacklist_Golang(articles[i]))
                     continue;
 
                 if (!IsDateInRange(articles[i], _startDate, _endDate))
@@ -129,7 +129,7 @@ namespace JobCrwaler_104
             }
         }
 
-        private bool IsBlacklist(HtmlNode node)
+        private bool IsBlacklist_CSharp(HtmlNode node)
         {
             var jobTitle = node.GetAttributeValue("data-job-name", "").ToUpper();
             var company = node.GetAttributeValue("data-cust-name", "");
@@ -141,13 +141,13 @@ namespace JobCrwaler_104
             if (_blackList.IndustryName.Contains(industry))
                 return true;
 
-            if (_blackList.CompanyNames.Contains(company))
+            if (_blackList.CompanyNames_CSharp.Contains(company))
                 return true;
 
-            if (_blackList.CompanyNames_SeemsGoodButCurrentlyNo.Contains(company))
+            if (_blackList.CompanyNames_SeemsGoodButCurrentlyNo_CSharp.Contains(company))
                 return true;
 
-            if (_blackList.CompanyNames_HadSubmitted.Contains(company))
+            if (_blackList.CompanyNames_HadSubmitted_CSharp.Contains(company))
                 return true;
 
             foreach (var keyword in _blackList.CompanyKeywords)
@@ -156,7 +156,43 @@ namespace JobCrwaler_104
                     return true;
             }
 
-            foreach (var keyword in _blackList.JobTitleKeywords)
+            foreach (var keyword in _blackList.JobTitleKeywords_CSharp)
+            {
+                if (jobTitle.Contains(keyword))
+                    return true;
+            }
+
+            return false;
+        }
+
+        private bool IsBlacklist_Golang(HtmlNode node)
+        {
+            var jobTitle = node.GetAttributeValue("data-job-name", "").ToUpper();
+            var company = node.GetAttributeValue("data-cust-name", "");
+            var industry = node.GetAttributeValue("data-indcat-desc", "");
+
+            if (string.IsNullOrEmpty(jobTitle))
+                return true;
+
+            if (_blackList.IndustryName.Contains(industry))
+                return true;
+
+            if (_blackList.CompanyNames_GO.Contains(company))
+                return true;
+
+            if (_blackList.CompanyNames_SeemsGoodButCurrentlyNo_GO.Contains(company))
+                return true;
+
+            if (_blackList.CompanyNames_HadSubmitted_GO.Contains(company))
+                return true;
+
+            foreach (var keyword in _blackList.CompanyKeywords)
+            {
+                if (company.Contains(keyword))
+                    return true;
+            }
+
+            foreach (var keyword in _blackList.JobTitleKeywords_GO)
             {
                 if (jobTitle.Contains(keyword))
                     return true;
