@@ -1,282 +1,190 @@
 ﻿using HtmlAgilityPack;
+using JobCrwaler_104;
 using System.Globalization;
 using System.Text;
 using System.Text.RegularExpressions;
 
-namespace JobCrwaler_104
+namespace JobCrawler_104
 {
     public class CrawlingManager
     {
-        private readonly BlackList _blackList;
         private readonly HttpClient _httpClient;
-        private readonly HtmlDocument _document;
+        private readonly HtmlDocument _htmlDocument;
         private readonly SeleniumTool _seleniumTool;
+        private readonly ExclusionList _exclusionList;
+        private readonly CrawlingSettings _settings;
 
-        private readonly double _crawlingInterval = 0.35;
-        private readonly string _startDate = "0624";
-        private readonly string _endDate = "0628";
-
-        private readonly string _targetUrl;
-        private readonly string _preferenceStr;
-
-        public CrawlingManager(string url, string browserPreference)
+        public CrawlingManager(HtmlDocument htmlDocument, ExclusionList exclusionList, HttpClient httpClient, SeleniumTool seleniumTool, CrawlingSettings settings)
         {
-            _targetUrl = url;
-            _preferenceStr = browserPreference;
-            _blackList = new BlackList();
-            _httpClient = new HttpClient();
-            _document = new HtmlDocument();
-            _seleniumTool = new SeleniumTool();
+            _exclusionList = exclusionList;
+            _httpClient = httpClient;
+            _htmlDocument = htmlDocument;
+            _seleniumTool = seleniumTool;
+            _settings = settings;
         }
 
-        public async Task<(int, int)> ProcessAsync()
+        public async Task<(int OriginCount, int FilteredCount)> ProcessAsync(string url, string browserPreference)
         {
-            await Console.Out.WriteLineAsync($"蒐集{_startDate}至{_endDate}資料中...\n");
+            await Console.Out.WriteLineAsync($"正在蒐集 {_settings.StartDate:MMdd} 至 {_settings.EndDate:MMdd} 的資料...\n");
 
-            int totalPage = await GetPageCount();
-
-            if (totalPage < 0)
+            int totalPages = await FetchTotalPageCountAsync(url);
+            if (totalPages <= 0)
+            {
                 return default;
+            }
 
-            var urls = GetPageUrls(totalPage, _targetUrl);
+            var pageUrls = GeneratePageUrls(url, totalPages);
+            await Console.Out.WriteLineAsync("正在進行爬蟲作業...\n");
 
-            await Console.Out.WriteLineAsync("爬蟲中...\n");
+            var (originCount, filteredJobList) = await CrawlWithFilterAsync(pageUrls);
+            await Console.Out.WriteLineAsync($"\n原始資料共 {originCount} 筆，篩選後 {filteredJobList.Count} 筆\n");
 
-            var (originCount, jobList) = await GetFilteredNodes(urls);
-            var outputHtml = GetHtmlString(jobList);
+            var outputHtml = GenerateOutputHtml(filteredJobList);
+            await OpenBrowserSimulation(outputHtml, url, browserPreference);
 
-            await Console.Out.WriteLineAsync($"\n原始資料：{originCount}筆，篩選後：{jobList.Count}筆\n");
-
-            var IsFirefox = IsFirefoxOverChrome();
-            var outputMsg = IsFirefox ? "火狐" : "Chrome";
-            await Console.Out.WriteLineAsync($"開啟{outputMsg}瀏覽器模擬中...\n");
-
-            var xPath = "//*[@id=\"js-job-content\"]";
-            _seleniumTool.Process(_targetUrl, xPath, outputHtml, IsFirefox);
-
-            return (originCount, jobList.Count);
+            return (originCount, filteredJobList.Count);
         }
 
-        private async Task<int> GetPageCount()
+        private async Task<int> FetchTotalPageCountAsync(string targetUrl)
         {
             try
             {
-                var firstPage = await _httpClient.GetStringAsync(_targetUrl);
-                var regex = new Regex("\"totalPage\":(\\d+)");
-                var match = regex.Match(firstPage);
+                var firstPageContent = await _httpClient.GetStringAsync(targetUrl);
+                var totalPageMatch = Regex.Match(firstPageContent, "\"totalPage\":(\\d+)");
 
-                return int.Parse(match.Groups[1].Value);
+                if (totalPageMatch.Success)
+                {
+                    return int.Parse(totalPageMatch.Groups[1].Value);
+                }
+
+                throw new InvalidOperationException("無法解析總頁數");
             }
-            catch (Exception ex)
+            catch (Exception ex) when (ex is HttpRequestException or FormatException or InvalidOperationException)
             {
-                if (ex is not (InvalidOperationException or FormatException))
-                    throw;
-
-                await Console.Out.WriteLineAsync("URL錯誤！請輸入正確104職缺搜尋連結\n");
-                await Console.Out.WriteLineAsync("強制終止程序...");
+                await Console.Out.WriteLineAsync("URL 錯誤！請輸入正確的 104 職缺搜尋連結。\n程序將強制終止...");
                 return -1;
             }
         }
 
-        private async Task<(int, IList<string>)> GetFilteredNodes(string[] urls)
+        private IEnumerable<string> GeneratePageUrls(string targetUrl, int totalPages)
         {
-            int originCount = 0;
-            var estimatedCount = urls.Length * 15;
-            var jobListList = new List<string>(estimatedCount);
+            var baseUrl = targetUrl.Split("&page=").FirstOrDefault()
+                ?? throw new ArgumentException("URL 格式不正確");
 
-            for (int i = 0; i < urls.Length; i++)
+            return Enumerable.Range(1, totalPages).Select(page => $"{baseUrl}&page={page}");
+        }
+
+        private async Task<(int OriginCount, IList<string> FilteredJobs)> CrawlWithFilterAsync(IEnumerable<string> urls)
+        {
+            int count = 1;
+            int totalPages = urls.Count();
+            int totalOriginCount = 0;
+            var filteredJobList = new List<string>();
+
+            foreach (var url in urls)
             {
                 var (row, col) = Console.GetCursorPosition();
-                await Console.Out.WriteLineAsync($"每{_crawlingInterval}秒擷取第 {i + 1} / {urls.Length} 頁職缺資訊中");
+                await Console.Out.WriteLineAsync($"每 {_settings.IntervalInSeconds} 秒擷取第 {count++} / {totalPages} 頁職缺資訊中...");
                 Console.SetCursorPosition(row, col);
 
-                var articles = await GetArticles(urls[i]);
+                var jobNodes = await FetchJobNodesAsync(url);
+                totalOriginCount += jobNodes.Count;
 
-                originCount += articles.Count;
-                AppendWhileMeetsRequirements(jobListList, articles);
+                AddJobWithFilter(filteredJobList, jobNodes);
 
-                await Task.Delay(TimeSpan.FromSeconds(_crawlingInterval));
+                await Task.Delay(TimeSpan.FromSeconds(_settings.IntervalInSeconds));
             }
 
-            await Console.Out.WriteLineAsync();
-            return (originCount, jobListList);
+            return (totalOriginCount, filteredJobList);
         }
 
-        private async Task<HtmlNodeCollection> GetArticles(string url)
+        private async Task<HtmlNodeCollection> FetchJobNodesAsync(string url)
         {
-            var xPath = "//*[@id=\"js-job-content\"]/article";
+            var pageContent = await _httpClient.GetStringAsync(url);
+            _htmlDocument.LoadHtml(pageContent);
 
-            var html = await _httpClient.GetStringAsync(url);
-            _document.LoadHtml(html);
-
-            var articles = _document.DocumentNode.SelectNodes(xPath)
-                ?? throw new NullReferenceException("來源資料找不到artical節點");
-
-            return articles;
-        }
-
-        private void AppendWhileMeetsRequirements(List<string> jobList, HtmlNodeCollection articles)
-        {
-            for (int i = 0; i < articles.Count; i++)
+            var jobNodes = _htmlDocument.DocumentNode.SelectNodes("//*[@id=\"js-job-content\"]/article");
+            if (jobNodes == null)
             {
-                if (IsBlacklist_Golang(articles[i]))
+                throw new NullReferenceException("無法在頁面中找到職缺資料的節點");
+            }
+
+            return jobNodes;
+        }
+
+        private void AddJobWithFilter(ICollection<string> jobList, HtmlNodeCollection jobNodes)
+        {
+            foreach (var jobNode in jobNodes)
+            {
+                if (ShouldExcludeJob(jobNode))
+                {
                     continue;
+                }
 
-                if (!IsDateInRange(articles[i], _startDate, _endDate))
-                    continue;
-
-                jobList.Add(articles[i].OuterHtml);
+                jobList.Add(jobNode.OuterHtml);
             }
         }
 
-        private bool IsBlacklist_CSharp(HtmlNode node)
+        private bool ShouldExcludeJob(HtmlNode jobNode)
         {
-            var jobTitle = node.GetAttributeValue("data-job-name", "").ToUpper();
-            var company = node.GetAttributeValue("data-cust-name", "");
-            var industry = node.GetAttributeValue("data-indcat-desc", "");
+            var jobTitle = jobNode.GetAttributeValue("data-job-name", string.Empty).ToUpperInvariant();
+            var companyName = jobNode.GetAttributeValue("data-cust-name", string.Empty);
+            var industryName = jobNode.GetAttributeValue("data-indcat-desc", string.Empty);
 
-            if (string.IsNullOrEmpty(jobTitle))
-                return true;
-
-            if (_blackList.IndustryName.Contains(industry))
-                return true;
-
-            if (_blackList.CompanyNames_CSharp.Contains(company))
-                return true;
-
-            if (_blackList.CompanyNames_SeemsGoodButCurrentlyNo_CSharp.Contains(company))
-                return true;
-
-            if (_blackList.CompanyNames_HadSubmitted_CSharp.Contains(company))
-                return true;
-
-            foreach (var keyword in _blackList.CompanyKeywords)
+            if (string.IsNullOrWhiteSpace(jobTitle) ||
+                _exclusionList.Industries.Contains(industryName) ||
+                _exclusionList.CompanyNamesForCSharp.Contains(companyName) ||
+                _exclusionList.DeferredCompaniesForCSharp.Contains(companyName) ||
+                _exclusionList.SubmittedCompaniesForCSharp.Contains(companyName) ||
+                _exclusionList.CompanyKeywords.Any(key => companyName.Contains(key)) ||
+                _exclusionList.JobTitleKeywordsForCSharp.Any(key => jobTitle.Contains(key)))
             {
-                if (company.Contains(keyword))
-                    return true;
-            }
-
-            foreach (var keyword in _blackList.JobTitleKeywords_CSharp)
-            {
-                if (jobTitle.Contains(keyword))
-                    return true;
+                return true;
             }
 
             return false;
         }
 
-        private bool IsBlacklist_Golang(HtmlNode node)
+
+        private bool IsJobDateWithinRange(HtmlNode jobNode)
         {
-            var jobTitle = node.GetAttributeValue("data-job-name", "").ToUpper();
-            var company = node.GetAttributeValue("data-cust-name", "");
-            var industry = node.GetAttributeValue("data-indcat-desc", "");
-
-            if (string.IsNullOrEmpty(jobTitle))
-                return true;
-
-            if (_blackList.IndustryName.Contains(industry))
-                return true;
-
-            if (_blackList.CompanyNames_GO.Contains(company))
-                return true;
-
-            if (_blackList.CompanyNames_SeemsGoodButCurrentlyNo_GO.Contains(company))
-                return true;
-
-            if (_blackList.CompanyNames_HadSubmitted_GO.Contains(company))
-                return true;
-
-            foreach (var keyword in _blackList.CompanyKeywords)
+            var dateText = jobNode.SelectSingleNode(".//span[@class='b-tit__date']")?.InnerText.Trim();
+            if (DateOnly.TryParseExact(dateText, "M/dd", CultureInfo.InvariantCulture, DateTimeStyles.AllowWhiteSpaces, out var jobDate))
             {
-                if (company.Contains(keyword))
-                    return true;
-            }
-
-            foreach (var keyword in _blackList.JobTitleKeywords_GO)
-            {
-                if (jobTitle.Contains(keyword))
-                    return true;
+                return jobDate >= _settings.StartDate && jobDate <= _settings.EndDate;
             }
 
             return false;
         }
 
-        private bool IsDateInRange(HtmlNode node, string startDateText, string endDateText)
-        {
-            var dateNode = ".//span[@class='b-tit__date']";
-            var dateText = node.SelectSingleNode(dateNode).InnerText.Trim();
-
-            if (string.IsNullOrEmpty(dateText))
-                return false;
-
-            var date = DateOnly.ParseExact(dateText, "M/dd", CultureInfo.InvariantCulture, DateTimeStyles.AllowWhiteSpaces);
-            var startDate = DateOnly.ParseExact(startDateText, "MMdd", CultureInfo.InvariantCulture, DateTimeStyles.AllowWhiteSpaces);
-            var endDate = DateOnly.ParseExact(endDateText, "MMdd", CultureInfo.InvariantCulture, DateTimeStyles.AllowWhiteSpaces);
-
-            if (startDate > endDate)
-                return false;
-
-            return date >= startDate && date <= endDate;
-        }
-
-        private string GetHtmlString(IList<string> nodes)
+        private string GenerateOutputHtml(IEnumerable<string> filteredJobNodes)
         {
             var sb = new StringBuilder();
-            for (int i = 0; i < nodes.Count; i++)
+            foreach (var jobNodeHtml in filteredJobNodes)
             {
-                sb.Append(nodes[i]);
+                sb.Append(jobNodeHtml);
             }
 
             return sb.ToString();
         }
 
-        private string[] GetPageUrls(int totalPages, string firstPageUrl)
+        private async Task OpenBrowserSimulation(string outputHtml, string targetUrl, string browserPreference)
         {
-            var regex = new Regex("&page=(\\d+)");
-            var match = regex.Match(firstPageUrl);
+            var isFirefox = DetermineBrowserPreference(browserPreference);
+            var xPath = "//*[@id=\"js-job-content\"]";
 
-            if (!match.Success)
-                throw new ArgumentException($"{firstPageUrl}為錯誤格式");
-
-            int pageNumIndex = match.Index;
-            int pageNumLength = match.Length;
-
-            var sbFront = new StringBuilder(pageNumIndex);
-            var sbEnd = new StringBuilder(firstPageUrl.Length - pageNumIndex);
-
-            for (int i = 0; i < pageNumIndex; i++)
-            {
-                sbFront.Append(firstPageUrl[i]);
-            }
-
-            for (int i = pageNumIndex + pageNumLength; i < firstPageUrl.Length; i++)
-            {
-                sbEnd.Append(firstPageUrl[i]);
-            }
-
-            var urls = new string[totalPages];
-            var sbBuffer = new StringBuilder(firstPageUrl.Length + 2);
-            for (int i = 1; i <= urls.Length; i++)
-            {
-                sbBuffer.Append(sbFront);
-                sbBuffer.Append("&page=");
-                sbBuffer.Append(i);
-                sbBuffer.Append(sbEnd);
-                urls[i - 1] = sbBuffer.ToString();
-                sbBuffer.Clear();
-            }
-
-            return urls;
+            await Console.Out.WriteLineAsync($"開啟{(isFirefox ? "火狐" : "Chrome")}瀏覽器模擬中...\n");
+            await _seleniumTool.Process(targetUrl, xPath, outputHtml, isFirefox);
         }
 
-        private bool IsFirefoxOverChrome()
+        private bool DetermineBrowserPreference(string browserPreference)
         {
-            _ = int.TryParse(_preferenceStr, out int num);
-
-            if (num == 2)
-                return false;
-
-            return true;
+            return browserPreference.Trim() switch
+            {
+                "1" => true, // Firefox
+                "2" => false, // Chrome
+                _ => true
+            };
         }
     }
 }

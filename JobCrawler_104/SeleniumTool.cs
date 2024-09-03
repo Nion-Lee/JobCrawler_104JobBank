@@ -6,7 +6,7 @@ namespace JobCrwaler_104
 {
     public class SeleniumTool
     {
-        public void Process(string url, string xPath, string outputHtml, bool isFirefoxOverChrome)
+        public async Task Process(string url, string xPath, string outputHtml, bool isFirefoxOverChrome)
         {
             try
             {
@@ -24,15 +24,15 @@ namespace JobCrwaler_104
 
                 driver.ExecuteScript(script, node, outputHtml);
 
-                Console.WriteLine("\n請按任一鍵結束瀏覽器模擬\n");
-                Console.ReadKey();
+                await Console.Out.WriteLineAsync("\n請按任一鍵結束瀏覽器模擬\n");
+                await Console.In.ReadLineAsync();
 
                 driver.Quit();
             }
             catch (WebDriverException ex)
             {
-                Console.WriteLine($"\n程式已被強制終止");
-                Console.WriteLine($"{ex.Message}");
+                await Console.Out.WriteLineAsync($"\n程式已被強制終止");
+                await Console.Out.WriteLineAsync($"{ex.Message}");
             }
         }
     }
