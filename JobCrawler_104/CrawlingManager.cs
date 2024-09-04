@@ -121,6 +121,11 @@ namespace JobCrawler_104
                     continue;
                 }
 
+                if (!IsDateInRange(jobNode))
+                {
+                    continue;
+                }
+
                 jobList.Add(jobNode.OuterHtml);
             }
         }
@@ -146,7 +151,7 @@ namespace JobCrawler_104
         }
 
 
-        private bool IsJobDateWithinRange(HtmlNode jobNode)
+        private bool IsDateInRange(HtmlNode jobNode)
         {
             var dateText = jobNode.SelectSingleNode(".//span[@class='b-tit__date']")?.InnerText.Trim();
             if (DateOnly.TryParseExact(dateText, "M/dd", CultureInfo.InvariantCulture, DateTimeStyles.AllowWhiteSpaces, out var jobDate))
